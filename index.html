@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traductor y Generador de Código Morse</title>
+    <style>
+        :root {
+            --bg-color: #1e1e2e;
+            --card-bg: #252538;
+            --text-color: #cdd6f4;
+            --accent-color: #89b4fa;
+            --border-color: #45475a;
+            --output-text: #a6e3a1;
+            --btn-bg: #313244;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent-color);
+            margin-top: 0;
+            font-size: 1.8rem;
+        }
+
+        .tabs {
+            display: flex;
+            background-color: var(--bg-color);
+            padding: 5px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #a6adc8;
+            padding: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent-color);
+            color: var(--bg-color);
+        }
+
+        p.instructions {
+            font-size: 0.9rem;
+            color: #a6adc8;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 40px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-size: 1.1rem;
+            resize: vertical;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .morse-font {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-color);
+        }
+
+        .output-container {
+            margin-top: 20px;
+        }
+
+        .output-box {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            background-color: #11111b;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1.2rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: var(--output-text);
+        }
+
+        .audio-controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            flex: 1;
+            background-color: var(--btn-bg);
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            background-color: #45475a;
+            border-color: var(--accent-color);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎛️ Centro Morse Estación</h1>
+
+    <div class="tabs">
+        <button id="btnEncode" class="tab-btn active" onclick="setMode('encode')">✍️ Cifrar (Texto a Morse)</button>
+        <button id="btnDecode" class="tab-btn" onclick="setMode('decode')">📻 Descifrar (Morse a Texto)</button>
+    </div>
+    
+    <p id="instructions" class="instructions">Escribe texto normal. Se convertirá automáticamente a código Morse.</p>
+    
+    <label id="inputLabel" for="mainInput">Introduce el Texto:</label>
+    <textarea id="mainInput" placeholder="Ejemplo: Hola Mundo" autofocus></textarea>
+    
+    <div class="output-container">
+        <label id="outputLabel">Código Morse Resultante:</label>
+        <div id="mainOutput" class="output-box morse-font"></div>
+    </div>
+
+    <div class="audio-controls">
+        <button id="playBtn" class="action-btn" onclick="reproducirMorse()" disabled>🔊 Escuchar Sonido</button>
+        <button id="downloadBtn" class="action-btn" onclick="descargarAudio()" disabled>💾 Descargar Audio (.wav)</button>
+    </div>
+</div>
+
+
+<!-- Control de Velocidad -->
+<div style="margin-top: 15px; background: #11111b; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; font-weight: bold;">
+        <span>⚡ Velocidad de reproducción:</span>
+        <span id="wpmDisplay">20 WPM (Normal)</span>
+    </div>
+    <input type="range" id="speedSlider" min="10" max="40" value="20" style="width: 100%; accent-color: var(--accent-color); cursor: pointer;">
+</div>
+
+<script>
+    const diccionario = {
+        "A": ".-", "B": "-...", "C": "-.-.", "D": "-..", "E": ".",
+        "F": "..-.", "G": "--.", "H": "....", "I": "..", "J": ".---",
+        "K": "-.-", "L": ".-..", "M": "--", "N": "-.", "O": "---",
+        "P": ".--.", "Q": "--.-", "R": ".-.", "S": "...", "T": "-",
+        "U": "..-", "V": "...-", "W": ".--", "X": "-..-", "Y": "-.--",
+        "Z": "--..", "0": "-----", "1": ".----", "2": "..---", "3": "...--", 
+        "4": "....-", "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----."
+    };
+
+    const diccionarioInverso = {};
+    for (const key in diccionario) { diccionarioInverso[diccionario[key]] = key; }
+
+    let modoActual = 'encode';
+    let audioCtx = null;
+
+    const speedSlider = document.getElementById('speedSlider');
+    const wpmDisplay = document.getElementById('wpmDisplay');
+    
+    let UNIT_TIME = 1.2 / parseInt(speedSlider.value); 
+    const FRECUENCIA = 600;
+
+    speedSlider.addEventListener('input', () => {
+        const wpm = parseInt(speedSlider.value);
+        UNIT_TIME = 1.2 / wpm;
+        wpmDisplay.textContent = `${wpm} WPM ${wpm === 20 ? '(Normal)' : wpm > 20 ? '(Rápido)' : '(Lento)'}`;
+    });
+
+    const mainInput = document.getElementById('mainInput');
+    const mainOutput = document.getElementById('mainOutput');
+    const instructions = document.getElementById('instructions');
+    const inputLabel = document.getElementById('inputLabel');
+    const outputLabel = document.getElementById('outputLabel');
+    const playBtn = document.getElementById('playBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    function setMode(mode) {
+        modoActual = mode;
+        document.getElementById('btnEncode').classList.remove('active');
+        document.getElementById('btnDecode').classList.remove('active');
+        
+        if (mode === 'encode') {
+            document.getElementById('btnEncode').classList.add('active');
+            instructions.innerHTML = "Escribe texto normal. Se convertirá automáticamente a código Morse.";
+            inputLabel.textContent = "Introduce el Texto:";
+            outputLabel.textContent = "Código Morse Resultante:";
+            mainInput.placeholder = "Ejemplo: Hola Mundo";
+            mainInput.classList.remove('morse-font');
+            mainOutput.classList.add('morse-font');
+        } else {
+            document.getElementById('btnDecode').classList.add('active');
+            instructions.innerHTML = "Usa puntos (<code>.</code>) y rayas (<code>-</code>). Separa letras con un <strong>espacio</strong> y palabras con una <strong>barra (<code>/</code>)</strong>.";
+            inputLabel.textContent = "Introduce el código Morse:";
+            outputLabel.textContent = "Texto descifrado:";
+            mainInput.placeholder = "Ejemplo: .... --- .-.. .- / -- ..- -. -.. ---";
+            mainInput.classList.add('morse-font');
+            mainOutput.classList.remove('morse-font');
+        }
+        mainInput.value = "";
+        mainOutput.textContent = "";
+        actualizarBotones();
+        mainInput.focus();
+    }
+
+    mainInput.addEventListener('input', () => {
+        const entrada = mainInput.value;
+        if (entrada.trim() === "") {
+            mainOutput.textContent = "";
+            actualizarBotones();
+            return;
+        }
+
+        if (modoActual === 'encode') {
+            const caracteres = entrada.toUpperCase().split('');
+            const resultado = caracteres.map(char => {
+                if (char === ' ') return '/';
+                return diccionario[char] || (char === '\n' ? '\n' : '❓');
+            });
+            mainOutput.textContent = resultado.join(' ').replace(/\s*\/\s*/g, ' / ');
+        } else {
+            const palabrasMorse = entrada.trim().split('/');
+            let fraseDescifrada = [];
+            palabrasMorse.forEach(palabra => {
+                const letrasMorse = palabra.trim().split(/\s+/);
+                let palabraDescifrada = "";
+                letrasMorse.forEach(letra => {
+                    if (diccionarioInverso[letra]) palabraDescifrada += diccionarioInverso[letra];
+                    else if (letra !== "") palabraDescifrada += "❓";
+                });
+                if (palabraDescifrada !== "") fraseDescifrada.push(palabraDescifrada);
+            });
+            mainOutput.textContent = fraseDescifrada.join(' ');
+        }
+        actualizarBotones();
+    });
+
+    function actualizarBotones() {
+        const morse = obtenerCodigoMorseActual();
+        const tieneContenido = morse.replace(/[^.-]/g, '').length > 0;
+        playBtn.disabled = !tieneContenido;
+        downloadBtn.disabled = !tieneContenido;
+    }
+
+    function obtenerCodigoMorseActual() {
+        return modoActual === 'encode' ? mainOutput.textContent : mainInput.value;
+    }
+
+    function reproducirMorse() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const morse = obtenerCodigoMorseActual();
+        let tiempoActual = audioCtx.currentTime;
+        playBtn.disabled = true;
+
+        for (let i = 0; i < morse.length; i++) {
+            const char = morse[i];
+            if (char === '.' || char === '-') {
+                const duracion = char === '.' ? UNIT_TIME : UNIT_TIME * 3;
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(FRECUENCIA, tiempoActual);
+                gainNode.gain.setValueAtTime(0, tiempoActual);
+                gainNode.gain.linearRampToValueAtTime(0.3, tiempoActual + 0.005);
+                gainNode.gain.setValueAtTime(0.3, tiempoActual + duracion - 0.005);
+                gainNode.gain.linearRampToValueAtTime(0, tiempoActual + duracion);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start(tiempoActual);
+                osc.stop(tiempoActual + duracion);
+                tiempoActual += duracion + UNIT_TIME;
+            } else if (char === ' ') {
+                tiempoActual += UNIT_TIME * 2;
+            } else if (char === '/') {
+                tiempoActual += UNIT_TIME * 4;
+            }
+        }
+        setTimeout(() => { actualizarBotones(); }, (tiempoActual - audioCtx.currentTime) * 1000);
+    }
+
+    function descargarAudio() {
+        const morse = obtenerCodigoMorseActual();
+        const sampleRate = 8000;
+        let duracionTotal = 0;
+
+        for (let i = 0; i < morse.length; i++) {
+            const char = morse[i];
+            if (char === '.') duracionTotal += UNIT_TIME * 2;
+            else if (char === '-') duracionTotal += UNIT_TIME * 4;
+            else if (char === ' ') duracionTotal += UNIT_TIME * 2;
+            else if (char === '/') duracionTotal += UNIT_TIME * 4;
+        }
+        
+        const numSamples = Math.ceil(duracionTotal * sampleRate);
+        const audioBuffer = new Float32Array(numSamples);
+        let muestraActual = 0;
+        
+        for (let i = 0; i < morse.length; i++) {
+            const char = morse[i];
+            let duracionSímbolo = 0;
+            let esSonido = false;
+            
+            if (char === '.') { duracionSímbolo = UNIT_TIME; esSonido = true; }
+            else if (char === '-') { duracionSímbolo = UNIT_TIME * 3; esSonido = true; }
+            else if (char === ' ') { duracionSímbolo = UNIT_TIME * 2; }
+            else if (char === '/') { duracionSímbolo = UNIT_TIME * 4; }
+            
+            const muestrasSimbolo = Math.floor(duracionSímbolo * sampleRate);
+            if (esSonido) {
+                for (let j = 0; j < muestrasSimbolo; j++) {
+                    if (muestraActual + j < numSamples) {
+                        let suavizado = 1;
+                        if (j < 40) suavizado = j / 40;
+                        if (j > muestrasSimbolo - 40) suavizado = (muestrasSimbolo - j) / 40;
+                        audioBuffer[muestraActual + j] = Math.sin(2 * Math.PI * FRECUENCIA * (j / sampleRate)) * 0.5 * suavizado;
+                    }
+                }
+                muestraActual += muestrasSimbolo + Math.floor(UNIT_TIME * sampleRate);
+            } else {
+                muestraActual += muestrasSimbolo;
+            }
+        }
+        
+        const buffer = new ArrayBuffer(44 + numSamples * 2);
+        const view = new DataView(buffer);
+        
+        view.setUint32(0, 0x52494646, false); // RIFF
+        view.setUint32(4, 36 + numSamples * 2, true);
+        view.setUint32(8, 0x57415645, false); // WAVE
+        view.setUint32(12, 0x666d7420, false); // fmt
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        view.setUint32(36, 0x64617461, false); // data
+        view.setUint32(40, numSamples * 2, true);
+        
+        let index = 44;
+        for (let i = 0; i < numSamples; i++) {
+            let s = Math.max(-1, Math.min(1, audioBuffer[i]));
+            view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            index += 2;
+        }
+        
+        const blob = new Blob([view], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `codigo_morse_${speedSlider.value}wpm.wav`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+</script>
+</body>
+</html>
