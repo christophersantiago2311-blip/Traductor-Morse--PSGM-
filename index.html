@@ -49,24 +49,27 @@
             color: var(--accent-color);
             margin-top: 0;
             font-size: 1.8rem;
+            margin-bottom: 20px;
         }
 
+        /* Nuevo diseño en cuadrícula para los 4 botones */
         .tabs {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
             background-color: var(--bg-color);
-            padding: 5px;
+            padding: 10px;
             border-radius: 8px;
             margin-bottom: 20px;
             border: 1px solid var(--border-color);
         }
 
         .tab-btn {
-            flex: 1;
             background: none;
-            border: none;
+            border: 1px solid transparent;
             color: #a6adc8;
             padding: 10px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             cursor: pointer;
             border-radius: 6px;
             transition: all 0.3s ease;
@@ -76,6 +79,11 @@
         .tab-btn.active {
             background-color: var(--accent-color);
             color: var(--bg-color);
+        }
+        
+        .tab-btn:hover:not(.active) {
+            border-color: var(--border-color);
+            background-color: #313244;
         }
 
         .key-container {
@@ -214,11 +222,13 @@
     <h1>🎛️ Centro Morse Estación</h1>
 
     <div class="tabs">
-        <button id="btnEncode" class="tab-btn active" onclick="setMode('encode')">✍️ Cifrar</button>
-        <button id="btnDecode" class="tab-btn" onclick="setMode('decode')">📻 Descifrar</button>
+        <button id="btnEncSec" class="tab-btn active" onclick="setMode('enc_sec')">🔒 Cifrar (Seguro)</button>
+        <button id="btnDecSec" class="tab-btn" onclick="setMode('dec_sec')">🔐 Descifrar (Seguro)</button>
+        <button id="btnEncNorm" class="tab-btn" onclick="setMode('enc_norm')">📝 Cifrar (Normal)</button>
+        <button id="btnDecNorm" class="tab-btn" onclick="setMode('dec_norm')">📖 Descifrar (Normal)</button>
     </div>
 
-    <!-- Contenedor de la Clave Vigenère con Temporizador -->
+    <!-- Contenedor de la Clave Vigenère -->
     <div class="key-container" id="keyContainer">
         <div class="key-header">
             <label for="vigenereKey">Clave de Seguridad:</label>
@@ -254,26 +264,19 @@
         window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
     }
 
-    // ALFABETO DE 37 CARACTERES
     const ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ0123456789";
 
-    // FUNCIONES BASE-37 PARA OCULTAR LA FECHA Y HORA EN LA CLAVE
     function toBase37(num, length) {
         if (num === 0) return ALFABETO[0].repeat(length);
         let res = "";
-        while (num > 0) {
-            res = ALFABETO[num % 37] + res;
-            num = Math.floor(num / 37);
-        }
+        while (num > 0) { res = ALFABETO[num % 37] + res; num = Math.floor(num / 37); }
         while (res.length < length) res = ALFABETO[0] + res;
         return res;
     }
 
     function fromBase37(str) {
         let num = 0;
-        for (let i = 0; i < str.length; i++) {
-            num = num * 37 + ALFABETO.indexOf(str[i]);
-        }
+        for (let i = 0; i < str.length; i++) { num = num * 37 + ALFABETO.indexOf(str[i]); }
         return num;
     }
 
@@ -287,17 +290,18 @@
     const diccionarioInverso = {};
     for (const key in diccionario) { diccionarioInverso[diccionario[key]] = key; }
 
-    let modoActual = 'encode';
+    let modoActual = 'enc_sec';
     let temporizador = null;
     const mainInput = document.getElementById('mainInput');
     const mainOutput = document.getElementById('mainOutput');
     const vigenereKeyInput = document.getElementById('vigenereKey');
     const timerDisplay = document.getElementById('timerDisplay');
     const btnGenerar = document.getElementById('btnGenerar');
+    const keyContainer = document.getElementById('keyContainer');
 
     function generarClaveAleatoria() {
         const minutosActuales = Math.floor(Date.now() / 60000);
-        const timestampBase37 = toBase37(minutosActuales, 5); // Oculta el tiempo exacto en los primeros 5 dígitos
+        const timestampBase37 = toBase37(minutosActuales, 5); 
         let randomStr = "";
         for (let i = 0; i < 5; i++) randomStr += ALFABETO.charAt(Math.floor(Math.random() * ALFABETO.length));
         return timestampBase37 + randomStr;
@@ -327,28 +331,25 @@
             return;
         }
 
-        // Leer cuándo fue generada la clave (extraer los 5 dígitos ocultos)
         const minutosGeneracion = fromBase37(claveActual.substring(0, 5));
         const expiraEnMs = (minutosGeneracion + 30) * 60000;
         const tiempoRestante = expiraEnMs - Date.now();
 
         if (tiempoRestante <= 0) {
-            // LA CLAVE HA CADUCADO
             timerDisplay.textContent = "⏱️ 00:00 (CADUCADA)";
             timerDisplay.style.color = "var(--warning)";
-            document.getElementById('keyContainer').style.borderColor = "var(--warning)";
+            keyContainer.style.borderColor = "var(--warning)";
             
-            if (modoActual === 'encode') {
+            if (modoActual === 'enc_sec') {
                 mainOutput.textContent = "[🚫 CLAVE CADUCADA - DEBES GENERAR UNA NUEVA]";
                 btnGenerar.classList.add('pulse-warning');
                 btnGenerar.innerHTML = "⚠️ Generar Nueva";
-            } else {
+            } else if (modoActual === 'dec_sec') {
                 mainOutput.textContent = "[🚫 ESTA CLAVE DE 30 MINUTOS YA CADUCÓ - PIDE OTRA]";
             }
             actualizarBotones();
         } else {
-            // LA CLAVE ES VÁLIDA
-            document.getElementById('keyContainer').style.borderColor = "var(--border-color)";
+            keyContainer.style.borderColor = "var(--border-color)";
             const mins = Math.floor(tiempoRestante / 60000);
             const secs = Math.floor((tiempoRestante % 60000) / 1000);
             timerDisplay.textContent = `⏱️ ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -385,33 +386,57 @@
 
     function setMode(mode) {
         modoActual = mode;
-        document.getElementById('btnEncode').classList.remove('active');
-        document.getElementById('btnDecode').classList.remove('active');
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         
-        if (mode === 'encode') {
-            document.getElementById('btnEncode').classList.add('active');
+        if (mode === 'enc_sec') {
+            document.getElementById('btnEncSec').classList.add('active');
             document.getElementById('inputLabel').textContent = "Introduce el Texto:";
             document.getElementById('outputLabel').textContent = "Código Morse Cifrado Resultante:";
-            document.getElementById('btnGenerar').style.display = 'flex'; 
+            keyContainer.style.display = 'block'; 
+            btnGenerar.style.display = 'flex'; 
             mainInput.placeholder = "Ejemplo: Hola Mundo";
             mainInput.classList.remove('morse-font');
             mainOutput.classList.add('morse-font');
             if (vigenereKeyInput.value.length !== 10) generarClaveUI();
-        } else {
-            document.getElementById('btnDecode').classList.add('active');
+            iniciarTemporizador();
+            
+        } else if (mode === 'dec_sec') {
+            document.getElementById('btnDecSec').classList.add('active');
             document.getElementById('inputLabel').textContent = "Introduce el código Morse Cifrado:";
             document.getElementById('outputLabel').textContent = "Texto Oculto Revelado:";
-            document.getElementById('btnGenerar').style.display = 'none'; 
+            keyContainer.style.display = 'block'; 
+            btnGenerar.style.display = 'none'; 
             vigenereKeyInput.value = ""; 
             vigenereKeyInput.placeholder = "Pega la clave aquí...";
             mainInput.placeholder = "Ejemplo: .... --- .-.. .-";
             mainInput.classList.add('morse-font');
             mainOutput.classList.remove('morse-font');
+            iniciarTemporizador();
+            
+        } else if (mode === 'enc_norm') {
+            document.getElementById('btnEncNorm').classList.add('active');
+            document.getElementById('inputLabel').textContent = "Introduce el Texto:";
+            document.getElementById('outputLabel').textContent = "Código Morse Clásico Resultante:";
+            keyContainer.style.display = 'none'; 
+            mainInput.placeholder = "Ejemplo: Hola Mundo";
+            mainInput.classList.remove('morse-font');
+            mainOutput.classList.add('morse-font');
+            if (temporizador) clearInterval(temporizador);
+            
+        } else if (mode === 'dec_norm') {
+            document.getElementById('btnDecNorm').classList.add('active');
+            document.getElementById('inputLabel').textContent = "Introduce el código Morse Clásico:";
+            document.getElementById('outputLabel').textContent = "Texto Normal Traducido:";
+            keyContainer.style.display = 'none'; 
+            mainInput.placeholder = "Ejemplo: .... --- .-.. .-";
+            mainInput.classList.add('morse-font');
+            mainOutput.classList.remove('morse-font');
+            if (temporizador) clearInterval(temporizador);
         }
+        
         mainInput.value = "";
         mainOutput.textContent = "";
         procesarTexto();
-        iniciarTemporizador();
         mainInput.focus();
     }
 
@@ -425,26 +450,28 @@
             return;
         }
 
-        // Validar caducidad antes de procesar
-        if (claveActual.length === 10) {
-            const minutosGeneracion = fromBase37(claveActual.substring(0, 5));
-            const expiraEnMs = (minutosGeneracion + 30) * 60000;
-            if (Date.now() > expiraEnMs) {
-                actualizarReloj(); // Forzar actualización visual a CADUCADA
-                return; // Bloquea el procesamiento
-            }
-        }
+        // Modos de Cifrar (Texto a Morse)
+        if (modoActual.startsWith('enc')) {
+            let textoFinal = entrada;
 
-        if (modoActual === 'encode') {
-            if (claveActual.length !== 10) return;
-            const textoCifrado = procesarVigenere(entrada, claveActual, false);
-            const caracteres = textoCifrado.split('');
+            if (modoActual === 'enc_sec') {
+                if (claveActual.length !== 10) return;
+                const minutosGeneracion = fromBase37(claveActual.substring(0, 5));
+                if (Date.now() > (minutosGeneracion + 30) * 60000) {
+                    actualizarReloj(); return; 
+                }
+                textoFinal = procesarVigenere(entrada, claveActual, false);
+            }
+
+            const caracteres = textoFinal.split('');
             const resultado = caracteres.map(char => {
                 if (char === ' ') return '/';
-                return diccionario[char] || (char === '\n' ? '\n' : '❓');
+                const upper = char.toUpperCase();
+                return diccionario[upper] || (char === '\n' ? '\n' : '❓');
             });
             mainOutput.textContent = resultado.join(' ').replace(/\s*\/\s*/g, ' / ');
             
+        // Modos de Descifrar (Morse a Texto)
         } else {
             const palabrasMorse = entrada.trim().split('/');
             let fraseCifrada = [];
@@ -459,13 +486,21 @@
                 if (palabraDescifrada !== "") fraseCifrada.push(palabraDescifrada);
             });
             
-            const textoBasura = fraseCifrada.join(' ');
+            const textoTraducido = fraseCifrada.join(' ');
 
-            if (claveActual.length === 10) {
-                const textoFinal = procesarVigenere(textoBasura, claveActual, true);
-                mainOutput.textContent = textoFinal;
-            } else {
-                mainOutput.textContent = "[Esperando clave válida de 10 dígitos...]";
+            if (modoActual === 'dec_norm') {
+                mainOutput.textContent = textoTraducido;
+            } else if (modoActual === 'dec_sec') {
+                if (claveActual.length === 10) {
+                    const minutosGeneracion = fromBase37(claveActual.substring(0, 5));
+                    if (Date.now() > (minutosGeneracion + 30) * 60000) {
+                        actualizarReloj(); return; 
+                    }
+                    const textoRelevado = procesarVigenere(textoTraducido, claveActual, true);
+                    mainOutput.textContent = textoRelevado;
+                } else {
+                    mainOutput.textContent = "[Esperando clave válida de 10 dígitos...]";
+                }
             }
         }
         actualizarBotones();
@@ -497,7 +532,7 @@
     const FRECUENCIA = 600;
 
     function actualizarBotones() {
-        const morse = modoActual === 'encode' ? mainOutput.textContent : mainInput.value;
+        const morse = modoActual.startsWith('enc') ? mainOutput.textContent : mainInput.value;
         const textoSalida = mainOutput.textContent;
         const esValido = morse.replace(/[^.-]/g, '').length > 0 && !textoSalida.startsWith("[");
         
@@ -508,7 +543,7 @@
 
     function reproducirMorse() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const morse = modoActual === 'encode' ? mainOutput.textContent : mainInput.value;
+        const morse = modoActual.startsWith('enc') ? mainOutput.textContent : mainInput.value;
         let tiempoActual = audioCtx.currentTime;
         document.getElementById('playBtn').disabled = true;
 
